@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EuroFlow — The Unified European Money Network</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%E2%82%AC%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <div id="toast" class="toast" hidden></div>
+
+  <!-- Auth view -->
+  <main id="auth-view" class="auth-view">
+    <div class="brand">
+      <div class="brand-mark">€</div>
+      <h1>EuroFlow</h1>
+      <p class="tagline">The Unified European Money Network</p>
+    </div>
+
+    <div class="card auth-card">
+      <div class="tabs">
+        <button class="tab active" data-auth-tab="login">Log in</button>
+        <button class="tab" data-auth-tab="register">Create account</button>
+      </div>
+
+      <form id="login-form" class="auth-form">
+        <label>Email, phone or username
+          <input name="identifier" autocomplete="username" required />
+        </label>
+        <label>Password
+          <input name="password" type="password" autocomplete="current-password" required />
+        </label>
+        <button class="btn primary" type="submit">Log in</button>
+      </form>
+
+      <form id="register-form" class="auth-form" hidden>
+        <div class="row">
+          <label>First name<input name="first_name" required /></label>
+          <label>Last name<input name="last_name" required /></label>
+        </div>
+        <label>Email<input name="email" type="email" required /></label>
+        <label>Phone (e.g. +351912345678)<input name="phone" required /></label>
+        <div class="row">
+          <label>Username<input name="username" placeholder="optional" /></label>
+          <label>Country (ISO-2)<input name="country" maxlength="2" placeholder="PT" required /></label>
+        </div>
+        <label>Password (min 8 chars)<input name="password" type="password" minlength="8" required /></label>
+        <button class="btn primary" type="submit">Create account</button>
+      </form>
+    </div>
+    <p class="footnote">Demo MVP — no real money moves. Top up with play funds after signing in.</p>
+  </main>
+
+  <!-- App view -->
+  <main id="app-view" class="app-view" hidden>
+    <header class="topbar">
+      <div class="logo">€ EuroFlow</div>
+      <div class="balance-pill">
+        <span class="balance-label">Balance</span>
+        <span id="balance" class="balance-amount">€0.00</span>
+      </div>
+      <div class="user-chip">
+        <span id="user-name"></span>
+        <button id="logout-btn" class="btn ghost small">Log out</button>
+      </div>
+    </header>
+
+    <nav class="nav">
+      <button class="nav-btn active" data-view="home">Home</button>
+      <button class="nav-btn" data-view="send">Send</button>
+      <button class="nav-btn" data-view="request">Request</button>
+      <button class="nav-btn" data-view="split">Split</button>
+      <button class="nav-btn" data-view="activity">Activity</button>
+      <button class="nav-btn" data-view="business">Business</button>
+    </nav>
+
+    <section class="panel" data-panel="home">
+      <div class="card hero-card">
+        <p class="muted">Available balance</p>
+        <p id="balance-large" class="balance-large">€0.00</p>
+        <div class="quick-actions">
+          <button class="btn primary" data-goto="send">Send money</button>
+          <button class="btn" data-goto="request">Request</button>
+          <form id="topup-form" class="inline-form">
+            <input name="amount" type="number" min="1" step="0.01" placeholder="Top-up €" required />
+            <button class="btn ghost" type="submit">Add play funds</button>
+          </form>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Pending requests for you</h3>
+        <div id="incoming-requests" class="list"><p class="muted">Loading…</p></div>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="send" hidden>
+      <div class="card">
+        <h3>Send money</h3>
+        <form id="send-form">
+          <label>Recipient handle (username, email or phone)
+            <input name="handle" required placeholder="@luca, luca@x.eu or +39…" />
+          </label>
+          <label>Amount (€)<input name="amount" type="number" min="0.01" step="0.01" required /></label>
+          <label>Note<input name="note" placeholder="optional" /></label>
+          <button class="btn primary" type="submit">Send</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="request" hidden>
+      <div class="card">
+        <h3>Request money</h3>
+        <form id="request-form">
+          <label>From (username, email or phone)
+            <input name="handle" required />
+          </label>
+          <label>Amount (€)<input name="amount" type="number" min="0.01" step="0.01" required /></label>
+          <label>Reason<input name="reason" placeholder="optional" /></label>
+          <button class="btn primary" type="submit">Send request</button>
+        </form>
+      </div>
+      <div class="card">
+        <h3>Requests you sent</h3>
+        <div id="outgoing-requests" class="list"><p class="muted">Loading…</p></div>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="split" hidden>
+      <div class="card">
+        <h3>Split a bill equally</h3>
+        <form id="split-form">
+          <label>What's it for?<input name="name" required placeholder="Dinner in Berlin" /></label>
+          <label>Total amount (€)<input name="total" type="number" min="0.01" step="0.01" required /></label>
+          <label>Participants (comma-separated handles; include yourself)
+            <input name="participants" required placeholder="me, anna, +49170…" />
+          </label>
+          <button class="btn primary" type="submit">Create split</button>
+        </form>
+      </div>
+      <div class="card">
+        <h3>Your splits</h3>
+        <div id="splits-list" class="list"><p class="muted">Loading…</p></div>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="activity" hidden>
+      <div class="card">
+        <h3>Transaction history</h3>
+        <div id="history-list" class="list"><p class="muted">Loading…</p></div>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="business" hidden>
+      <div id="merchant-setup" class="card">
+        <h3>Become a merchant</h3>
+        <form id="merchant-form">
+          <label>Business name<input name="business_name" required placeholder="Cafe Lisboa" /></label>
+          <div class="row">
+            <label>VAT number<input name="vat_number" placeholder="optional" /></label>
+            <label>Country (ISO-2)<input name="country" maxlength="2" placeholder="PT" required /></label>
+          </div>
+          <button class="btn primary" type="submit">Register merchant</button>
+        </form>
+      </div>
+
+      <div id="merchant-dashboard" hidden>
+        <div class="card">
+          <h3 id="merchant-name"></h3>
+          <p class="muted">Payment link: <a id="merchant-link" href="#" target="_blank" rel="noopener"></a></p>
+          <form id="qr-form" class="inline-form">
+            <input name="amount" type="number" min="0.01" step="0.01" placeholder="Dynamic QR €" />
+            <button class="btn ghost" type="submit">Generate QR payload</button>
+          </form>
+          <pre id="qr-output" class="qr-output" hidden></pre>
+        </div>
+        <div class="card">
+          <h3>Create invoice</h3>
+          <form id="invoice-form">
+            <label>Customer name<input name="customer_name" required /></label>
+            <label>Amount (€)<input name="amount" type="number" min="0.01" step="0.01" required /></label>
+            <label>Description<input name="description" placeholder="optional" /></label>
+            <label>Due date<input name="due_date" type="date" /></label>
+            <button class="btn primary" type="submit">Create invoice</button>
+          </form>
+        </div>
+        <div class="card">
+          <h3>Invoices</h3>
+          <div id="invoices-list" class="list"><p class="muted">Loading…</p></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

@@ -29,6 +29,11 @@ node src/server.js          # starts on http://localhost:3000
 npm start
 ```
 
+Then open **http://localhost:3000/** in a browser: the server also serves a
+zero-build **web client** (the consumer + business screens from the brief) from
+`public/`, talking to the same JSON API. Sign up, top up play funds, and try
+sending, requesting, splitting, and the merchant/invoice/QR flows end to end.
+
 Run the test suite (Node's built-in runner, no deps):
 
 ```bash
@@ -124,6 +129,7 @@ src/
     http.js            # tiny router, JSON helpers, HttpError
     crypto.js          # scrypt password hashing + HMAC session tokens
     store.js           # in-memory document store w/ JSON persistence
+    static.js          # static file serving for the web client (traversal-safe)
     validate.js        # input validation + euro<->cents helpers
   services/
     accounts.js        # register / login / wallets / KYC
@@ -131,6 +137,10 @@ src/
     requests.js        # request money
     splits.js          # bill splitting
     business.js        # merchants, invoices, payment links, QR
+public/
+  index.html           # web client shell (SPA)
+  styles.css           # styling
+  app.js               # client logic (vanilla ES modules, no build step)
 test/
   api.test.js          # end-to-end API tests (node --test)
 ```

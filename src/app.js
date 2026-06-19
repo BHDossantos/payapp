@@ -1,6 +1,7 @@
 import { URL } from 'node:url';
 import { Router, HttpError, sendJson, readJsonBody } from './lib/http.js';
 import { verifyToken } from './lib/crypto.js';
+import { serveStatic } from './lib/static.js';
 import * as accounts from './services/accounts.js';
 import * as payments from './services/payments.js';
 import * as requests from './services/requests.js';
@@ -106,7 +107,7 @@ function buildRouter() {
   return r;
 }
 
-export function createApp({ store }) {
+export function createApp({ store, staticDir = null }) {
   const router = buildRouter();
 
   return async function handle(req, res) {
@@ -115,7 +116,11 @@ export function createApp({ store }) {
     const matched = router.match(req.method, parsed.pathname);
 
     try {
-      if (!matched) throw new HttpError(404, 'Not found');
+      if (!matched) {
+        // No API route: try to serve the web client, otherwise 404 (JSON).
+        if (staticDir && await serveStatic(req, res, parsed.pathname, staticDir)) return;
+        throw new HttpError(404, 'Not found');
+      }
 
       let userId = null;
       if (matched.opts.auth) {
