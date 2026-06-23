@@ -8,6 +8,7 @@ import * as requests from './services/requests.js';
 import * as splits from './services/splits.js';
 import * as business from './services/business.js';
 import * as admin from './services/admin.js';
+import * as notifications from './services/notifications.js';
 
 // Routes flagged `auth: true` require a valid Bearer token; the resolved user
 // id is passed to the handler as `ctx.userId`.
@@ -98,6 +99,21 @@ function buildRouter() {
   // --- qr ---
   r.post('/qr/generate', { auth: true }, ({ store, userId, body }) => ({
     status: 201, body: business.generateQr(store, userId, body),
+  }));
+
+  // --- notifications ---
+  r.get('/notifications', { auth: true }, ({ store, userId, query }) => ({
+    status: 200,
+    body: {
+      notifications: notifications.listNotifications(store, userId, { unread: query.unread === 'true' }),
+      unread_count: notifications.unreadCount(store, userId),
+    },
+  }));
+  r.post('/notifications/read-all', { auth: true }, ({ store, userId }) => ({
+    status: 200, body: notifications.markAllRead(store, userId),
+  }));
+  r.post('/notifications/:id/read', { auth: true }, ({ store, userId, params }) => ({
+    status: 200, body: notifications.markRead(store, userId, params.id),
   }));
 
   // --- kyc (stub) ---

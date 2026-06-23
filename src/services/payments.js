@@ -1,6 +1,7 @@
 import { HttpError } from '../lib/http.js';
 import { requireAmountCents, optionalString, toEuros } from '../lib/validate.js';
 import { resolveUser, walletFor } from './accounts.js';
+import { notify } from './notifications.js';
 
 export function publicTransaction(store, tx, viewerId = null) {
   const sender = store.get('users', tx.senderUserId);
@@ -88,6 +89,18 @@ export function sendMoney(store, senderUserId, body) {
     reference,
     type: 'p2p',
   });
+
+  const sender = store.get('users', senderUserId);
+  const amount = toEuros(amountCents);
+  notify(store, recipient.id, 'money_received',
+    `You received €${amount.toFixed(2)}`,
+    `${sender.firstName} ${sender.lastName} sent you money${reference ? ` — “${reference}”` : ''}.`,
+    { transaction_id: tx.id, amount });
+  notify(store, senderUserId, 'money_sent',
+    `You sent €${amount.toFixed(2)}`,
+    `Payment to ${recipient.firstName} ${recipient.lastName} completed.`,
+    { transaction_id: tx.id, amount });
+
   return publicTransaction(store, tx, senderUserId);
 }
 

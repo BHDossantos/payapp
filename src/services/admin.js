@@ -3,6 +3,7 @@ import { toEuros } from '../lib/validate.js';
 import { publicUser, walletFor } from './accounts.js';
 import { publicMerchant } from './business.js';
 import { publicTransaction } from './payments.js';
+import { notify } from './notifications.js';
 
 // AML thresholds (configurable). A single transfer at/above the large-amount
 // threshold, or a burst of sends in a short window, raises an alert.
@@ -55,6 +56,10 @@ export function setMerchantStatus(store, merchantId, action) {
   const merchant = store.get('merchants', merchantId);
   if (!merchant) throw new HttpError(404, 'Merchant not found');
   store.update('merchants', merchantId, { status });
+  notify(store, merchant.userId, `merchant_${action}d`,
+    `Your merchant profile was ${status}`,
+    `“${merchant.businessName}” is now ${status}.`,
+    { merchant_id: merchantId, status });
   return publicMerchant(store.get('merchants', merchantId));
 }
 
@@ -67,6 +72,10 @@ export function setKycStatus(store, userId, status) {
   const user = store.get('users', userId);
   if (!user) throw new HttpError(404, 'User not found');
   store.update('users', userId, { kycStatus: status });
+  notify(store, userId, 'kyc_update',
+    `Identity verification ${status}`,
+    `Your KYC status is now “${status}”.`,
+    { kyc_status: status });
   return adminUser(store, store.get('users', userId));
 }
 

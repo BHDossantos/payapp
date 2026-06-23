@@ -105,6 +105,7 @@ function showView(name) {
   if (name === 'split') loadSplits();
   if (name === 'business') loadMerchant();
   if (name === 'admin') loadAdmin();
+  if (name === 'notifications') loadNotifications();
 }
 $$('.nav-btn').forEach((b) => b.addEventListener('click', () => showView(b.dataset.view)));
 $$('[data-goto]').forEach((b) => b.addEventListener('click', () => showView(b.dataset.goto)));
@@ -116,6 +117,7 @@ async function refreshAll() {
     $('#user-name').textContent = me.user.first_name;
     setBalance(me.wallet.balance);
     $('#admin-nav').hidden = !me.user.is_admin;
+    refreshUnread();
     loadRequests('incoming');
   } catch (err) {
     if (err.status === 401) { $('#logout-btn').click(); }
@@ -259,6 +261,41 @@ async function loadAdmin() {
   } catch (err) { toast(err.message, 'error'); }
 }
 
+/* ---------------- Notifications ---------------- */
+async function refreshUnread() {
+  try {
+    const { unread_count: count } = await api('GET', '/notifications?unread=true');
+    const badge = $('#unread-badge');
+    badge.textContent = count;
+    badge.hidden = count === 0;
+  } catch { /* non-fatal */ }
+}
+
+async function loadNotifications() {
+  try {
+    const { notifications } = await api('GET', '/notifications');
+    const el = $('#notifications-list');
+    if (!notifications.length) { el.innerHTML = '<p class="muted">No notifications yet.</p>'; return; }
+    el.innerHTML = notifications.map((n) => `
+      <div class="item ${n.read ? '' : 'unread'}" data-notif="${n.notification_id}">
+        ${n.read ? '' : '<span class="dot"></span>'}
+        <div class="grow">
+          <div class="title">${esc(n.title)}</div>
+          <div class="sub">${esc(n.body)} · ${new Date(n.created_at).toLocaleString()}</div>
+        </div>
+      </div>`).join('');
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+$('#bell-btn').addEventListener('click', () => showView('notifications'));
+$('#mark-all-btn').addEventListener('click', async () => {
+  try {
+    await api('POST', '/notifications/read-all');
+    loadNotifications();
+    refreshUnread();
+  } catch (err) { toast(err.message, 'error'); }
+});
+
 /* ---------------- Actions (forms) ---------------- */
 $('#topup-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -341,6 +378,17 @@ $('#qr-form').addEventListener('submit', async (e) => {
 
 /* ---------------- Delegated click actions ---------------- */
 document.addEventListener('click', async (e) => {
+  const notif = e.target.closest('[data-notif]');
+  if (notif && notif.classList.contains('unread')) {
+    try {
+      await api('POST', `/notifications/${notif.dataset.notif}/read`);
+      notif.classList.remove('unread');
+      notif.querySelector('.dot')?.remove();
+      refreshUnread();
+    } catch (err) { toast(err.message, 'error'); }
+    return;
+  }
+
   const btn = e.target.closest('[data-pay-request],[data-decline-request],[data-pay-split],[data-invoice-paid],[data-merchant-action]');
   if (!btn) return;
   try {

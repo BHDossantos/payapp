@@ -2,6 +2,7 @@ import { HttpError } from '../lib/http.js';
 import { requireAmountCents, optionalString, toEuros } from '../lib/validate.js';
 import { resolveUser, walletFor } from './accounts.js';
 import { transfer, publicTransaction } from './payments.js';
+import { notify } from './notifications.js';
 
 export function publicRequest(store, reqDoc) {
   const requestor = store.get('users', reqDoc.requestorId);
@@ -42,6 +43,13 @@ export function createRequest(store, requestorId, body) {
     status: 'pending',
     createdAt: new Date().toISOString(),
   });
+
+  const requestor = store.get('users', requestorId);
+  notify(store, recipient.id, 'payment_request',
+    `${requestor.firstName} requested €${toEuros(amountCents).toFixed(2)}`,
+    reason || 'Payment request',
+    { request_id: reqDoc.id, amount: toEuros(amountCents) });
+
   return publicRequest(store, reqDoc);
 }
 
@@ -74,6 +82,13 @@ export function payRequest(store, userId, requestId) {
     type: 'request',
   });
   store.update('paymentRequests', requestId, { status: 'paid' });
+
+  const payer = store.get('users', userId);
+  notify(store, reqDoc.requestorId, 'request_paid',
+    `${payer.firstName} paid your request`,
+    `Your request for €${toEuros(reqDoc.amountCents).toFixed(2)} was paid.`,
+    { request_id: requestId, transaction_id: tx.id, amount: toEuros(reqDoc.amountCents) });
+
   return {
     request: publicRequest(store, store.get('paymentRequests', requestId)),
     transaction: publicTransaction(store, tx, userId),
@@ -90,5 +105,12 @@ export function declineRequest(store, userId, requestId) {
     throw new HttpError(409, `Request is already ${reqDoc.status}`);
   }
   store.update('paymentRequests', requestId, { status: 'declined' });
+
+  const payer = store.get('users', userId);
+  notify(store, reqDoc.requestorId, 'request_declined',
+    `${payer.firstName} declined your request`,
+    `Your request for €${toEuros(reqDoc.amountCents).toFixed(2)} was declined.`,
+    { request_id: requestId });
+
   return publicRequest(store, store.get('paymentRequests', requestId));
 }

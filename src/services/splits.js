@@ -2,6 +2,7 @@ import { HttpError } from '../lib/http.js';
 import { requireString, requireAmountCents, toEuros } from '../lib/validate.js';
 import { resolveUser, walletFor } from './accounts.js';
 import { transfer, publicTransaction } from './payments.js';
+import { notify } from './notifications.js';
 
 function publicParticipant(store, p) {
   const user = store.get('users', p.userId);
@@ -71,6 +72,7 @@ export function createSplit(store, creatorId, body) {
       || (() => { throw new HttpError(400, `participants[${i}].amount is required`); })());
   }
 
+  const creator = store.get('users', creatorId);
   resolved.forEach(({ user }, i) => {
     // The creator's own share is auto-settled (they are collecting, not paying).
     const isCreator = user.id === creatorId;
@@ -80,6 +82,12 @@ export function createSplit(store, creatorId, body) {
       amountCents: shares[i],
       status: isCreator ? 'paid' : 'pending',
     });
+    if (!isCreator) {
+      notify(store, user.id, 'split_request',
+        `You owe €${toEuros(shares[i]).toFixed(2)} for “${name}”`,
+        `${creator.firstName} ${creator.lastName} added you to a bill split.`,
+        { group_id: group.id, amount: toEuros(shares[i]) });
+    }
   });
 
   return publicGroup(store, group);
@@ -122,6 +130,13 @@ export function paySplitShare(store, userId, groupId) {
     type: 'split',
   });
   store.update('splitParticipants', participant.id, { status: 'paid' });
+
+  const payer = store.get('users', userId);
+  notify(store, group.creatorId, 'split_share_paid',
+    `${payer.firstName} paid their share`,
+    `€${toEuros(participant.amountCents).toFixed(2)} towards “${group.name}”.`,
+    { group_id: groupId, transaction_id: tx.id, amount: toEuros(participant.amountCents) });
+
   return {
     group: publicGroup(store, group),
     transaction: publicTransaction(store, tx, userId),

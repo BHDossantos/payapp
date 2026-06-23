@@ -18,10 +18,14 @@ export class Store {
       merchants: {},
       invoices: {},
       qrCodes: {},
+      notifications: {},
     };
     if (filePath && existsSync(filePath)) {
       try {
-        this.data = JSON.parse(readFileSync(filePath, 'utf8'));
+        const loaded = JSON.parse(readFileSync(filePath, 'utf8'));
+        // Merge so collections added in newer versions still exist after loading
+        // a file written by an older build.
+        this.data = { ...this.data, ...loaded };
       } catch {
         // Corrupt file: start clean rather than crashing the server.
       }
