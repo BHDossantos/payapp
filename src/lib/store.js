@@ -19,6 +19,7 @@ export class Store {
       invoices: {},
       qrCodes: {},
       notifications: {},
+      scheduledRequests: {},
     };
     if (filePath && existsSync(filePath)) {
       try {

@@ -64,14 +64,14 @@ body {
 .row { display: flex; gap: 12px; }
 .row label { flex: 1; }
 
-input {
+input, select {
   display: block; width: 100%; margin-top: 6px;
   padding: 11px 12px; font-size: 15px;
   background: var(--surface-2); color: var(--text);
   border: 1px solid var(--line); border-radius: 10px;
 }
 input::placeholder { color: #5e6c92; }
-input:focus { outline: none; border-color: var(--brand); }
+input:focus, select:focus { outline: none; border-color: var(--brand); }
 
 .btn {
   cursor: pointer; border: 1px solid var(--line);

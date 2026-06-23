@@ -101,7 +101,7 @@ function showView(name) {
   $$('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === name));
   $$('.panel').forEach((p) => { p.hidden = p.dataset.panel !== name; });
   if (name === 'activity') loadHistory();
-  if (name === 'request') loadRequests('outgoing');
+  if (name === 'request') { loadRequests('outgoing'); loadSchedules(); }
   if (name === 'split') loadSplits();
   if (name === 'business') loadMerchant();
   if (name === 'admin') loadAdmin();
@@ -261,6 +261,27 @@ async function loadAdmin() {
   } catch (err) { toast(err.message, 'error'); }
 }
 
+async function loadSchedules() {
+  try {
+    const { schedules } = await api('GET', '/schedules?box=outgoing');
+    const el = $('#schedules-list');
+    if (!schedules.length) { el.innerHTML = '<p class="muted">No recurring requests yet.</p>'; return; }
+    el.innerHTML = schedules.map((s) => {
+      const next = s.status === 'active' ? `next ${new Date(s.next_run_at).toLocaleDateString()}` : s.status;
+      const actions = s.status === 'cancelled' || s.status === 'completed' ? `<span class="tag">${s.status}</span>`
+        : (s.status === 'paused'
+          ? `<button class="btn ghost small" data-schedule="${s.schedule_id}" data-schedule-action="resume">Resume</button>`
+          : `<button class="btn ghost small" data-schedule="${s.schedule_id}" data-schedule-action="pause">Pause</button>`)
+          + `<button class="btn ghost small" data-schedule="${s.schedule_id}" data-schedule-action="cancel">Cancel</button>`;
+      return `<div class="item">
+        <div class="grow">
+          <div class="title">${esc(s.recipient_name)} · ${euro(s.amount)} · ${esc(s.frequency)}</div>
+          <div class="sub">${esc(s.reason || 'Recurring request')} · ${next} · ${s.runs_count} run(s)</div>
+        </div>${actions}</div>`;
+    }).join('');
+  } catch (err) { toast(err.message, 'error'); }
+}
+
 /* ---------------- Notifications ---------------- */
 async function refreshUnread() {
   try {
@@ -331,6 +352,19 @@ $('#request-form').addEventListener('submit', async (e) => {
   } catch (err) { toast(err.message, 'error'); }
 });
 
+$('#schedule-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = fields(e.target);
+  const body = { ...handleToFields(f.handle), amount: Number(f.amount), reason: f.reason, frequency: f.frequency };
+  if (f.start_date) body.start_date = f.start_date;
+  try {
+    await api('POST', '/schedules', body);
+    e.target.reset();
+    toast('Recurring request scheduled', 'success');
+    loadSchedules();
+  } catch (err) { toast(err.message, 'error'); }
+});
+
 $('#split-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = fields(e.target);
@@ -385,6 +419,16 @@ document.addEventListener('click', async (e) => {
       notif.classList.remove('unread');
       notif.querySelector('.dot')?.remove();
       refreshUnread();
+    } catch (err) { toast(err.message, 'error'); }
+    return;
+  }
+
+  const sched = e.target.closest('[data-schedule-action]');
+  if (sched) {
+    try {
+      await api('POST', `/schedules/${sched.dataset.schedule}/${sched.dataset.scheduleAction}`);
+      toast(`Schedule ${sched.dataset.scheduleAction}d`, 'success');
+      loadSchedules();
     } catch (err) { toast(err.message, 'error'); }
     return;
   }

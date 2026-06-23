@@ -21,6 +21,30 @@ export function publicRequest(store, reqDoc) {
   };
 }
 
+// Inserts a pending payment request and notifies the payer. Shared by ad-hoc
+// requests and the recurring-schedule runner. `scheduleId` links a request back
+// to the schedule that produced it (null for ad-hoc).
+export function createRequestRecord(store, { requestorId, recipientId, amountCents, currency, reason, scheduleId = null }) {
+  const reqDoc = store.insert('paymentRequests', {
+    requestorId,
+    recipientId,
+    amountCents,
+    currency,
+    reason,
+    scheduleId,
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+  });
+
+  const requestor = store.get('users', requestorId);
+  notify(store, recipientId, 'payment_request',
+    `${requestor.firstName} requested €${toEuros(amountCents).toFixed(2)}`,
+    reason || 'Payment request',
+    { request_id: reqDoc.id, amount: toEuros(amountCents), schedule_id: scheduleId });
+
+  return reqDoc;
+}
+
 // A asks B for money. `requestorId` is the person who wants to be paid.
 export function createRequest(store, requestorId, body) {
   const amountCents = requireAmountCents(body);
@@ -34,22 +58,13 @@ export function createRequest(store, requestorId, body) {
   if (recipient.id === requestorId) throw new HttpError(400, 'Cannot request money from yourself');
 
   const wallet = walletFor(store, requestorId);
-  const reqDoc = store.insert('paymentRequests', {
+  const reqDoc = createRequestRecord(store, {
     requestorId,
     recipientId: recipient.id,
     amountCents,
     currency: wallet.currency,
     reason,
-    status: 'pending',
-    createdAt: new Date().toISOString(),
   });
-
-  const requestor = store.get('users', requestorId);
-  notify(store, recipient.id, 'payment_request',
-    `${requestor.firstName} requested €${toEuros(amountCents).toFixed(2)}`,
-    reason || 'Payment request',
-    { request_id: reqDoc.id, amount: toEuros(amountCents) });
-
   return publicRequest(store, reqDoc);
 }
 

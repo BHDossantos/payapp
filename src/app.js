@@ -9,6 +9,7 @@ import * as splits from './services/splits.js';
 import * as business from './services/business.js';
 import * as admin from './services/admin.js';
 import * as notifications from './services/notifications.js';
+import * as scheduled from './services/scheduled.js';
 
 // Routes flagged `auth: true` require a valid Bearer token; the resolved user
 // id is passed to the handler as `ctx.userId`.
@@ -101,6 +102,20 @@ function buildRouter() {
     status: 201, body: business.generateQr(store, userId, body),
   }));
 
+  // --- scheduled / recurring requests ---
+  r.post('/schedules', { auth: true }, ({ store, userId, body }) => ({
+    status: 201, body: scheduled.createSchedule(store, userId, body),
+  }));
+  r.get('/schedules', { auth: true }, ({ store, userId, query }) => ({
+    status: 200, body: { schedules: scheduled.listSchedules(store, userId, query.box) },
+  }));
+  r.get('/schedules/:id', { auth: true }, ({ store, userId, params }) => ({
+    status: 200, body: scheduled.getSchedule(store, userId, params.id),
+  }));
+  r.post('/schedules/:id/:action', { auth: true }, ({ store, userId, params }) => ({
+    status: 200, body: scheduled.setStatus(store, userId, params.id, params.action),
+  }));
+
   // --- notifications ---
   r.get('/notifications', { auth: true }, ({ store, userId, query }) => ({
     status: 200,
@@ -140,6 +155,9 @@ function buildRouter() {
   }));
   r.get('/admin/aml/alerts', { admin: true }, ({ store }) => ({
     status: 200, body: { alerts: admin.amlAlerts(store) },
+  }));
+  r.post('/admin/schedules/run-due', { admin: true }, ({ store }) => ({
+    status: 200, body: scheduled.runDue(store),
   }));
 
   return r;
