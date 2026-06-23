@@ -6,6 +6,15 @@ import {
 
 const USERNAME_RE = /^[a-z0-9_.]{3,30}$/;
 
+// Emails listed here are granted admin rights at registration. Lets you bootstrap
+// a compliance/admin operator without a separate provisioning step.
+const ADMIN_EMAILS = new Set(
+  (process.env.EUROFLOW_ADMIN_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
+);
+
 export function publicUser(user) {
   if (!user) return null;
   return {
@@ -17,6 +26,7 @@ export function publicUser(user) {
     username: user.username,
     country: user.country,
     kyc_status: user.kycStatus,
+    is_admin: !!user.isAdmin,
     created_at: user.createdAt,
   };
 }
@@ -88,6 +98,7 @@ export function register(store, body) {
     username,
     country,
     kycStatus: 'unverified',
+    isAdmin: ADMIN_EMAILS.has(email),
     passwordHash: hashPassword(password),
     createdAt: new Date().toISOString(),
   });

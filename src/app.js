@@ -7,6 +7,7 @@ import * as payments from './services/payments.js';
 import * as requests from './services/requests.js';
 import * as splits from './services/splits.js';
 import * as business from './services/business.js';
+import * as admin from './services/admin.js';
 
 // Routes flagged `auth: true` require a valid Bearer token; the resolved user
 // id is passed to the handler as `ctx.userId`.
@@ -104,6 +105,27 @@ function buildRouter() {
     status: 200, body: accounts.verifyKyc(store, userId),
   }));
 
+  // --- admin / compliance ---
+  r.get('/admin/stats', { admin: true }, ({ store }) => ({ status: 200, body: admin.stats(store) }));
+  r.get('/admin/users', { admin: true }, ({ store }) => ({
+    status: 200, body: { users: admin.listUsers(store) },
+  }));
+  r.get('/admin/transactions', { admin: true }, ({ store, query }) => ({
+    status: 200, body: { transactions: admin.listTransactions(store, query) },
+  }));
+  r.get('/admin/merchants', { admin: true }, ({ store, query }) => ({
+    status: 200, body: { merchants: admin.listMerchants(store, query) },
+  }));
+  r.post('/admin/merchants/:id/:action', { admin: true }, ({ store, params }) => ({
+    status: 200, body: admin.setMerchantStatus(store, params.id, params.action),
+  }));
+  r.post('/admin/users/:id/kyc', { admin: true }, ({ store, params, body }) => ({
+    status: 200, body: admin.setKycStatus(store, params.id, body.status),
+  }));
+  r.get('/admin/aml/alerts', { admin: true }, ({ store }) => ({
+    status: 200, body: { alerts: admin.amlAlerts(store) },
+  }));
+
   return r;
 }
 
@@ -123,12 +145,14 @@ export function createApp({ store, staticDir = null }) {
       }
 
       let userId = null;
-      if (matched.opts.auth) {
+      if (matched.opts.auth || matched.opts.admin) {
         const header = req.headers.authorization || '';
         const token = header.startsWith('Bearer ') ? header.slice(7) : null;
         const payload = token ? verifyToken(token) : null;
         if (!payload) throw new HttpError(401, 'Missing or invalid authorization token');
-        if (!store.get('users', payload.sub)) throw new HttpError(401, 'User no longer exists');
+        const user = store.get('users', payload.sub);
+        if (!user) throw new HttpError(401, 'User no longer exists');
+        if (matched.opts.admin && !user.isAdmin) throw new HttpError(403, 'Admin access required');
         userId = payload.sub;
       }
 

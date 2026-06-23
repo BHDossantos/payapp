@@ -48,6 +48,8 @@ npm test                    # node --test
 | `EUROFLOW_DATA_FILE`     | `./data/euroflow.json`      | JSON persistence path                |
 | `EUROFLOW_TOKEN_SECRET`  | `dev-insecure-secret...`    | HMAC secret for session tokens       |
 | `EUROFLOW_PAY_URL`       | `https://euroflow.app/pay`  | Base URL for payment links / QR      |
+| `EUROFLOW_ADMIN_EMAILS`  | _(none)_                    | Comma-separated emails granted admin at registration |
+| `EUROFLOW_AML_LARGE_EUR` | `1000`                      | Single-transfer amount that raises an AML alert |
 
 > ⚠️ Always set a strong `EUROFLOW_TOKEN_SECRET` outside local development.
 
@@ -119,6 +121,23 @@ The creator's own share is auto-settled (they collect rather than pay).
 | `POST /invoices/:id/paid` | yes  | Mark an invoice paid                                           |
 | `POST /qr/generate`       | yes  | `type`: `p2p` \| `merchant` \| `dynamic`. Returns a `euroflow://pay?…` deep link + web link for the client to render |
 
+### Admin & compliance
+
+Routes require a token belonging to an **admin** user. Bootstrap an admin by
+listing their email in `EUROFLOW_ADMIN_EMAILS` before they register. Non-admin
+tokens receive **403**. In the web client an **Admin** tab appears automatically
+for admin users (compliance stats, pending-merchant approvals, AML alerts).
+
+| Method & path                          | Notes                                                            |
+| -------------------------------------- | ---------------------------------------------------------------- |
+| `GET /admin/stats`                     | Risk/compliance summary: users by KYC, merchants by status, transaction volume, open AML alerts |
+| `GET /admin/users`                     | All users, enriched with balance + merchant status               |
+| `GET /admin/transactions`              | All transactions; optional `?status=` and `?type=`               |
+| `GET /admin/merchants?status=pending`  | Merchants, optionally filtered by status                         |
+| `POST /admin/merchants/:id/:action`    | `:action` ∈ `approve` \| `reject` \| `suspend`                   |
+| `POST /admin/users/:id/kyc`            | Body `{ "status": "verified" \| "rejected" \| "unverified" }`    |
+| `GET /admin/aml/alerts`                | Derived alerts: large transfers and high send-velocity bursts    |
+
 ## Project layout
 
 ```
@@ -137,12 +156,14 @@ src/
     requests.js        # request money
     splits.js          # bill splitting
     business.js        # merchants, invoices, payment links, QR
+    admin.js           # admin/compliance: users, merchants, KYC, AML alerts, stats
 public/
   index.html           # web client shell (SPA)
   styles.css           # styling
   app.js               # client logic (vanilla ES modules, no build step)
 test/
   api.test.js          # end-to-end API tests (node --test)
+  admin.test.js        # admin/compliance endpoint tests
 ```
 
 ## Example: end-to-end P2P transfer

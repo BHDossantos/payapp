@@ -73,6 +73,7 @@
       <button class="nav-btn" data-view="split">Split</button>
       <button class="nav-btn" data-view="activity">Activity</button>
       <button class="nav-btn" data-view="business">Business</button>
+      <button class="nav-btn" data-view="admin" id="admin-nav" hidden>Admin</button>
     </nav>
 
     <section class="panel" data-panel="home">
@@ -148,6 +149,21 @@
       <div class="card">
         <h3>Transaction history</h3>
         <div id="history-list" class="list"><p class="muted">Loading…</p></div>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="admin" hidden>
+      <div class="card">
+        <h3>Compliance dashboard</h3>
+        <div id="admin-stats" class="list"><p class="muted">Loading…</p></div>
+      </div>
+      <div class="card">
+        <h3>Merchants awaiting approval</h3>
+        <div id="admin-merchants" class="list"><p class="muted">Loading…</p></div>
+      </div>
+      <div class="card">
+        <h3>AML / risk alerts</h3>
+        <div id="admin-alerts" class="list"><p class="muted">Loading…</p></div>
       </div>
     </section>
 

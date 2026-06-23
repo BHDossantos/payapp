@@ -104,6 +104,7 @@ function showView(name) {
   if (name === 'request') loadRequests('outgoing');
   if (name === 'split') loadSplits();
   if (name === 'business') loadMerchant();
+  if (name === 'admin') loadAdmin();
 }
 $$('.nav-btn').forEach((b) => b.addEventListener('click', () => showView(b.dataset.view)));
 $$('[data-goto]').forEach((b) => b.addEventListener('click', () => showView(b.dataset.goto)));
@@ -114,6 +115,7 @@ async function refreshAll() {
     const me = await api('GET', '/me');
     $('#user-name').textContent = me.user.first_name;
     setBalance(me.wallet.balance);
+    $('#admin-nav').hidden = !me.user.is_admin;
     loadRequests('incoming');
   } catch (err) {
     if (err.status === 401) { $('#logout-btn').click(); }
@@ -223,6 +225,40 @@ async function loadInvoices() {
   } catch (err) { toast(err.message, 'error'); }
 }
 
+async function loadAdmin() {
+  try {
+    const [stats, merchants, alerts] = await Promise.all([
+      api('GET', '/admin/stats'),
+      api('GET', '/admin/merchants?status=pending'),
+      api('GET', '/admin/aml/alerts'),
+    ]);
+
+    $('#admin-stats').innerHTML = `
+      <div class="item"><div class="grow"><div class="title">${stats.users.total} users</div>
+        <div class="sub">${stats.users.admins} admin(s) · KYC ${JSON.stringify(stats.users.by_kyc)}</div></div></div>
+      <div class="item"><div class="grow"><div class="title">${stats.transactions.total} transactions</div>
+        <div class="sub">${euro(stats.transactions.volume_completed)} settled volume</div></div></div>
+      <div class="item"><div class="grow"><div class="title">${stats.merchants.total} merchants</div>
+        <div class="sub">${JSON.stringify(stats.merchants.by_status)}</div></div></div>`;
+
+    const mEl = $('#admin-merchants');
+    mEl.innerHTML = merchants.merchants.length ? merchants.merchants.map((m) => `
+      <div class="item">
+        <div class="grow"><div class="title">${esc(m.business_name)}</div>
+          <div class="sub">${esc(m.country)}${m.vat_number ? ` · VAT ${esc(m.vat_number)}` : ''}</div></div>
+        <button class="btn primary small" data-merchant-action="approve" data-merchant="${m.merchant_id}">Approve</button>
+        <button class="btn ghost small" data-merchant-action="reject" data-merchant="${m.merchant_id}">Reject</button>
+      </div>`).join('') : '<p class="muted">No merchants awaiting approval.</p>';
+
+    const aEl = $('#admin-alerts');
+    aEl.innerHTML = alerts.alerts.length ? alerts.alerts.map((a) => `
+      <div class="item">
+        <div class="grow"><div class="title">${esc(a.type)} <span class="tag ${a.severity === 'high' ? 'failed' : 'pending'}">${esc(a.severity)}</span></div>
+          <div class="sub">${esc(a.detail)}</div></div>
+      </div>`).join('') : '<p class="muted">No open alerts.</p>';
+  } catch (err) { toast(err.message, 'error'); }
+}
+
 /* ---------------- Actions (forms) ---------------- */
 $('#topup-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -305,9 +341,15 @@ $('#qr-form').addEventListener('submit', async (e) => {
 
 /* ---------------- Delegated click actions ---------------- */
 document.addEventListener('click', async (e) => {
-  const btn = e.target.closest('[data-pay-request],[data-decline-request],[data-pay-split],[data-invoice-paid]');
+  const btn = e.target.closest('[data-pay-request],[data-decline-request],[data-pay-split],[data-invoice-paid],[data-merchant-action]');
   if (!btn) return;
   try {
+    if (btn.dataset.merchantAction) {
+      await api('POST', `/admin/merchants/${btn.dataset.merchant}/${btn.dataset.merchantAction}`);
+      toast(`Merchant ${btn.dataset.merchantAction}d`, 'success');
+      loadAdmin();
+      return;
+    }
     if (btn.dataset.payRequest) {
       await api('POST', `/wallet/requests/${btn.dataset.payRequest}/pay`);
       toast('Request paid', 'success');
