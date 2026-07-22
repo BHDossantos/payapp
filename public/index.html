@@ -75,6 +75,7 @@
       <button class="nav-btn" data-view="request">Request</button>
       <button class="nav-btn" data-view="split">Split</button>
       <button class="nav-btn" data-view="activity">Activity</button>
+      <button class="nav-btn" data-view="contacts">Contacts</button>
       <button class="nav-btn" data-view="business">Business</button>
       <button class="nav-btn" data-view="admin" id="admin-nav" hidden>Admin</button>
     </nav>
@@ -199,6 +200,29 @@
       <div class="card">
         <h3>AML / risk alerts</h3>
         <div id="admin-alerts" class="list"><p class="muted">Loading…</p></div>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="contacts" hidden>
+      <div class="card">
+        <h3>Find people on EuroFlow</h3>
+        <form id="directory-form" class="inline-form">
+          <input name="q" placeholder="Search username, name, email or phone" style="width:100%" />
+          <button class="btn" type="submit">Search</button>
+        </form>
+        <div id="directory-results" class="list" style="margin-top:12px"></div>
+      </div>
+      <div class="card">
+        <h3>Import contacts</h3>
+        <p class="muted" style="margin-top:0">One per line: <code>Name, handle</code> or just an email/phone.</p>
+        <form id="contacts-sync-form">
+          <textarea name="raw" rows="4" placeholder="Luca, +39331... &#10;anna@example.com &#10;Marco, marco_lisbon"></textarea>
+          <button class="btn primary" type="submit">Sync contacts</button>
+        </form>
+      </div>
+      <div class="card">
+        <h3>Your contacts</h3>
+        <div id="contacts-list" class="list"><p class="muted">Loading…</p></div>
       </div>
     </section>
 
