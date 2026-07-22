@@ -20,6 +20,7 @@ export class Store {
       qrCodes: {},
       notifications: {},
       scheduledRequests: {},
+      contacts: {},
     };
     if (filePath && existsSync(filePath)) {
       try {

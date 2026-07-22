@@ -10,6 +10,7 @@ import * as business from './services/business.js';
 import * as admin from './services/admin.js';
 import * as notifications from './services/notifications.js';
 import * as scheduled from './services/scheduled.js';
+import * as contacts from './services/contacts.js';
 
 // Routes flagged `auth: true` require a valid Bearer token; the resolved user
 // id is passed to the handler as `ctx.userId`.
@@ -114,6 +115,23 @@ function buildRouter() {
   }));
   r.post('/schedules/:id/:action', { auth: true }, ({ store, userId, params }) => ({
     status: 200, body: scheduled.setStatus(store, userId, params.id, params.action),
+  }));
+
+  // --- contacts / discovery ---
+  r.post('/contacts/sync', { auth: true }, ({ store, userId, body }) => ({
+    status: 200, body: contacts.syncContacts(store, userId, body),
+  }));
+  r.get('/contacts', { auth: true }, ({ store, userId, query }) => ({
+    status: 200, body: { contacts: contacts.listContacts(store, userId, { onPlatform: query.on_platform === 'true' }) },
+  }));
+  r.add('DELETE', '/contacts/:id', { auth: true }, ({ store, userId, params }) => ({
+    status: 200, body: contacts.deleteContact(store, userId, params.id),
+  }));
+  r.post('/contacts/invite', { auth: true }, ({ store, userId, body }) => ({
+    status: 200, body: contacts.inviteText(store, userId, body),
+  }));
+  r.get('/users/search', { auth: true }, ({ store, userId, query }) => ({
+    status: 200, body: { results: contacts.searchDirectory(store, query.q, userId) },
   }));
 
   // --- notifications ---
