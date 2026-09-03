@@ -121,6 +121,16 @@
           <button class="btn primary" type="submit">Send</button>
         </form>
       </div>
+      <div class="card">
+        <h3>Pay a business</h3>
+        <p class="muted" style="margin-top:0">Use a merchant's payment-link slug (e.g. from their QR).</p>
+        <form id="pay-merchant-form">
+          <label>Merchant slug<input name="slug" required placeholder="cafe-lisboa" /></label>
+          <label>Amount (€)<input name="amount" type="number" min="0.01" step="0.01" required /></label>
+          <label>Note<input name="note" placeholder="optional" /></label>
+          <button class="btn primary" type="submit">Pay business</button>
+        </form>
+      </div>
     </section>
 
     <section class="panel" data-panel="request" hidden>
@@ -240,6 +250,10 @@
       </div>
 
       <div id="merchant-dashboard" hidden>
+        <div class="card">
+          <h3>Dashboard</h3>
+          <div id="merchant-stats" class="list"><p class="muted">Loading…</p></div>
+        </div>
         <div class="card">
           <h3 id="merchant-name"></h3>
           <p class="muted">Payment link: <a id="merchant-link" href="#" target="_blank" rel="noopener"></a></p>

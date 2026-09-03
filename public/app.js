@@ -204,6 +204,7 @@ async function loadMerchant() {
     const link = $('#merchant-link');
     link.textContent = m.payment_link;
     link.href = m.payment_link;
+    loadDashboard();
     loadInvoices();
   } catch (err) {
     if (err.status === 404) {
@@ -211,6 +212,17 @@ async function loadMerchant() {
       $('#merchant-dashboard').hidden = true;
     } else { toast(err.message, 'error'); }
   }
+}
+
+async function loadDashboard() {
+  try {
+    const d = await api('GET', '/merchant/dashboard');
+    $('#merchant-stats').innerHTML = `
+      <div class="item"><div class="grow"><div class="title">${euro(d.revenue)} revenue</div>
+        <div class="sub">${d.payments_received} payment(s) · ${d.customers} customer(s)</div></div></div>
+      <div class="item"><div class="grow"><div class="title">${d.invoices.paid}/${d.invoices.total} invoices paid</div>
+        <div class="sub">${euro(d.invoices.outstanding)} outstanding across ${d.invoices.open} open</div></div></div>`;
+  } catch (err) { toast(err.message, 'error'); }
 }
 
 async function loadInvoices() {
@@ -408,6 +420,20 @@ $('#send-form').addEventListener('submit', async (e) => {
     await api('POST', '/wallet/send', { ...handleToFields(f.handle), amount: Number(f.amount), note: f.note });
     e.target.reset();
     toast('Money sent', 'success');
+    refreshAll();
+    showView('activity');
+  } catch (err) { toast(err.message, 'error'); }
+});
+
+$('#pay-merchant-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = fields(e.target);
+  try {
+    await api('POST', `/merchants/${encodeURIComponent(f.slug.trim())}/pay`, {
+      body: { amount: Number(f.amount), note: f.note },
+    });
+    e.target.reset();
+    toast('Paid the business', 'success');
     refreshAll();
     showView('activity');
   } catch (err) { toast(err.message, 'error'); }

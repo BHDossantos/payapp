@@ -164,7 +164,11 @@ The creator's own share is auto-settled (they collect rather than pay).
 | `GET /merchant`           | yes  | Your merchant profile + payment link                          |
 | `POST /invoice/create`    | yes  | `customer_name`, `amount`, optional `description`, `due_date`  |
 | `GET /invoices`           | yes  | Invoices issued by your merchant profile                       |
-| `POST /invoices/:id/paid` | yes  | Mark an invoice paid                                           |
+| `POST /invoices/:id/paid` | yes  | Mark an invoice **externally** settled (no money moves)        |
+| `POST /invoices/:id/pay`  | yes  | A customer **pays** the invoice — moves money to the merchant, marks it paid |
+| `GET /merchants/:slug`    | yes  | Public merchant info for a payer (no owner id)                 |
+| `POST /merchants/:slug/pay` | yes | Pay a merchant an arbitrary amount via their payment-link slug |
+| `GET /merchant/dashboard` | yes  | Revenue, payments received, unique customers, invoice rollup (open/paid/outstanding), recent payments |
 | `POST /qr/generate`       | yes  | `type`: `p2p` \| `merchant` \| `dynamic`. Returns a `euroflow://pay?…` deep link + web link for the client to render |
 
 ### Admin & compliance
@@ -216,6 +220,7 @@ test/
   notifications.test.js # notification generation + read-state tests
   scheduled.test.js    # recurring-request scheduling, due-processing, catch-up
   contacts.test.js     # contact sync/matching, live membership, directory search
+  business.test.js     # merchant/invoice payments + dashboard rollup
 ```
 
 ## Example: end-to-end P2P transfer

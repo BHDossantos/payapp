@@ -88,6 +88,9 @@ function buildRouter() {
   r.get('/merchant', { auth: true }, ({ store, userId }) => ({
     status: 200, body: business.getMyMerchant(store, userId),
   }));
+  r.get('/merchant/dashboard', { auth: true }, ({ store, userId }) => ({
+    status: 200, body: business.merchantDashboard(store, userId),
+  }));
   r.post('/invoice/create', { auth: true }, ({ store, userId, body }) => ({
     status: 201, body: business.createInvoice(store, userId, body),
   }));
@@ -96,6 +99,16 @@ function buildRouter() {
   }));
   r.post('/invoices/:id/paid', { auth: true }, ({ store, userId, params }) => ({
     status: 200, body: business.markInvoicePaid(store, userId, params.id),
+  }));
+  r.post('/invoices/:id/pay', { auth: true }, ({ store, userId, params }) => ({
+    status: 200, body: business.payInvoice(store, userId, params.id),
+  }));
+  // Public-facing merchant lookup + pay (by payment-link slug).
+  r.get('/merchants/:slug', { auth: true }, ({ store, params }) => ({
+    status: 200, body: business.getMerchantBySlug(store, params.slug),
+  }));
+  r.post('/merchants/:slug/pay', { auth: true }, ({ store, userId, params, body }) => ({
+    status: 201, body: business.payMerchant(store, userId, params.slug, body),
   }));
 
   // --- qr ---
