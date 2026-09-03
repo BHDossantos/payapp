@@ -104,6 +104,7 @@ function showView(name) {
   if (name === 'request') { loadRequests('outgoing'); loadSchedules(); }
   if (name === 'split') loadSplits();
   if (name === 'business') loadMerchant();
+  if (name === 'contacts') loadContacts();
   if (name === 'admin') loadAdmin();
   if (name === 'notifications') loadNotifications();
 }
@@ -203,6 +204,7 @@ async function loadMerchant() {
     const link = $('#merchant-link');
     link.textContent = m.payment_link;
     link.href = m.payment_link;
+    loadDashboard();
     loadInvoices();
   } catch (err) {
     if (err.status === 404) {
@@ -210,6 +212,17 @@ async function loadMerchant() {
       $('#merchant-dashboard').hidden = true;
     } else { toast(err.message, 'error'); }
   }
+}
+
+async function loadDashboard() {
+  try {
+    const d = await api('GET', '/merchant/dashboard');
+    $('#merchant-stats').innerHTML = `
+      <div class="item"><div class="grow"><div class="title">${euro(d.revenue)} revenue</div>
+        <div class="sub">${d.payments_received} payment(s) · ${d.customers} customer(s)</div></div></div>
+      <div class="item"><div class="grow"><div class="title">${d.invoices.paid}/${d.invoices.total} invoices paid</div>
+        <div class="sub">${euro(d.invoices.outstanding)} outstanding across ${d.invoices.open} open</div></div></div>`;
+  } catch (err) { toast(err.message, 'error'); }
 }
 
 async function loadInvoices() {
@@ -282,6 +295,77 @@ async function loadSchedules() {
   } catch (err) { toast(err.message, 'error'); }
 }
 
+/* ---------------- Contacts / discovery ---------------- */
+function contactRow(c) {
+  if (c.on_platform) {
+    return `<div class="item">
+      <div class="grow"><div class="title">${esc(c.name || c.user.name)} <span class="tag paid">on EuroFlow</span></div>
+        <div class="sub">@${esc(c.user.username || '')}</div></div>
+      <button class="btn primary small" data-send-to="${esc(c.user.username || c.email || c.phone)}">Send</button>
+      <button class="btn ghost small" data-del-contact="${c.contact_id}">✕</button>
+    </div>`;
+  }
+  return `<div class="item">
+    <div class="grow"><div class="title">${esc(c.name || c.email || c.phone)}</div>
+      <div class="sub">${esc(c.email || c.phone || '')} · not yet on EuroFlow</div></div>
+    <button class="btn ghost small" data-invite="${esc(c.name || '')}">Invite</button>
+    <button class="btn ghost small" data-del-contact="${c.contact_id}">✕</button>
+  </div>`;
+}
+
+async function loadContacts() {
+  try {
+    const { contacts } = await api('GET', '/contacts');
+    const el = $('#contacts-list');
+    el.innerHTML = contacts.length ? contacts.map(contactRow).join('')
+      : '<p class="muted">No contacts yet — import some above.</p>';
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+// Parse the textarea: each line is "Name, handle" or just a handle (email/phone).
+function parseContactLines(raw) {
+  return raw.split('\n').map((line) => line.trim()).filter(Boolean).map((line) => {
+    let name = null;
+    let handle = line;
+    if (line.includes(',')) {
+      const [n, ...rest] = line.split(',');
+      name = n.trim();
+      handle = rest.join(',').trim();
+    }
+    const entry = { name };
+    if (handle.includes('@')) entry.email = handle;
+    else entry.phone = handle;
+    return entry;
+  });
+}
+
+$('#directory-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const q = fields(e.target).q.trim();
+  if (q.length < 2) { toast('Type at least 2 characters', 'error'); return; }
+  try {
+    const { results } = await api('GET', `/users/search?q=${encodeURIComponent(q)}`);
+    const el = $('#directory-results');
+    el.innerHTML = results.length ? results.map((r) => `
+      <div class="item">
+        <div class="grow"><div class="title">${esc(r.name)}</div><div class="sub">@${esc(r.username || '')}</div></div>
+        <button class="btn primary small" data-send-to="${esc(r.username || '')}">Send</button>
+      </div>`).join('') : '<p class="muted">No matches.</p>';
+  } catch (err) { toast(err.message, 'error'); }
+});
+
+$('#contacts-sync-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const contacts = parseContactLines(fields(e.target).raw);
+  if (!contacts.length) { toast('Add at least one contact', 'error'); return; }
+  try {
+    const res = await api('POST', '/contacts/sync', { body: { contacts } });
+    e.target.reset();
+    toast(`Synced — ${res.on_platform.length} already on EuroFlow`, 'success');
+    loadContacts();
+  } catch (err) { toast(err.message, 'error'); }
+});
+
 /* ---------------- Notifications ---------------- */
 async function refreshUnread() {
   try {
@@ -336,6 +420,20 @@ $('#send-form').addEventListener('submit', async (e) => {
     await api('POST', '/wallet/send', { ...handleToFields(f.handle), amount: Number(f.amount), note: f.note });
     e.target.reset();
     toast('Money sent', 'success');
+    refreshAll();
+    showView('activity');
+  } catch (err) { toast(err.message, 'error'); }
+});
+
+$('#pay-merchant-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = fields(e.target);
+  try {
+    await api('POST', `/merchants/${encodeURIComponent(f.slug.trim())}/pay`, {
+      body: { amount: Number(f.amount), note: f.note },
+    });
+    e.target.reset();
+    toast('Paid the business', 'success');
     refreshAll();
     showView('activity');
   } catch (err) { toast(err.message, 'error'); }
@@ -419,6 +517,33 @@ document.addEventListener('click', async (e) => {
       notif.classList.remove('unread');
       notif.querySelector('.dot')?.remove();
       refreshUnread();
+    } catch (err) { toast(err.message, 'error'); }
+    return;
+  }
+
+  const sendTo = e.target.closest('[data-send-to]');
+  if (sendTo) {
+    showView('send');
+    $('#send-form').elements.handle.value = sendTo.dataset.sendTo;
+    $('#send-form').elements.amount.focus();
+    return;
+  }
+
+  const delContact = e.target.closest('[data-del-contact]');
+  if (delContact) {
+    try {
+      await api('DELETE', `/contacts/${delContact.dataset.delContact}`);
+      loadContacts();
+    } catch (err) { toast(err.message, 'error'); }
+    return;
+  }
+
+  const invite = e.target.closest('[data-invite]');
+  if (invite) {
+    try {
+      const res = await api('POST', '/contacts/invite', { body: { name: invite.dataset.invite } });
+      await navigator.clipboard?.writeText(`${res.message} ${res.link}`).catch(() => {});
+      toast('Invite copied to clipboard', 'success');
     } catch (err) { toast(err.message, 'error'); }
     return;
   }
