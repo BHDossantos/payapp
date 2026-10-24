@@ -18,8 +18,9 @@ like Stripe Treasury, Adyen, TrueLayer or Tink) instead of becoming a bank.
   cents**; euros only appear at the API boundary. No floating-point drift.
 - **Honest auth.** Passwords are hashed with `scrypt` + per-user salt; sessions
   are stateless HMAC-signed tokens.
-- **Swappable persistence.** An in-memory document store with optional JSON-file
-  persistence. The `Store` is the single seam to replace with Postgres later.
+- **Swappable persistence.** An in-memory document store (fast, synchronous
+  reads) with a pluggable durable backend — JSON file by default, or **Postgres**
+  when `DATABASE_URL` is set. The in-memory read path is unchanged either way.
 
 ## Quick start
 
@@ -51,8 +52,32 @@ npm test                    # node --test
 | `EUROFLOW_ADMIN_EMAILS`  | _(none)_                    | Comma-separated emails granted admin at registration |
 | `EUROFLOW_AML_LARGE_EUR` | `1000`                      | Single-transfer amount that raises an AML alert |
 | `EUROFLOW_SCHEDULE_TICK_MS` | `60000`                  | How often the server fires due recurring requests |
+| `DATABASE_URL`           | _(none)_                    | Postgres connection string; when set, persistence uses Postgres instead of a file |
+| `EUROFLOW_PG_SCHEMA`     | `euroflow`                  | Postgres schema the `documents` table lives in |
 
 > ⚠️ Always set a strong `EUROFLOW_TOKEN_SECRET` outside local development.
+
+### Persistence backends
+
+The domain logic reads from an in-memory store; durability is a pluggable
+backend chosen at startup:
+
+- **File (default).** Snapshots the dataset to `EUROFLOW_DATA_FILE` as JSON on
+  every mutation. Zero dependencies.
+- **Postgres.** Set `DATABASE_URL` (e.g. a Supabase connection string) and the
+  server persists each record as a JSONB row in `<schema>.documents`, loading
+  the set at startup. The schema is created automatically on first connect; it is
+  also captured in [`db/migrations/001_init.sql`](db/migrations/001_init.sql).
+  The `pg` driver is an **optional dependency**, imported only when
+  `DATABASE_URL` is set — so the default build needs no install.
+
+```bash
+# run against Postgres / Supabase
+DATABASE_URL="postgresql://user:pass@host:5432/postgres" npm start
+
+# run the Postgres integration test (skipped unless DATABASE_URL is set)
+DATABASE_URL="postgresql://..." EUROFLOW_PG_SCHEMA=euroflow_test node --test
+```
 
 ## Authentication
 
@@ -197,9 +222,12 @@ src/
   lib/
     http.js            # tiny router, JSON helpers, HttpError
     crypto.js          # scrypt password hashing + HMAC session tokens
-    store.js           # in-memory document store w/ JSON persistence
+    store.js           # in-memory document store + pluggable durable backend
     static.js          # static file serving for the web client (traversal-safe)
     validate.js        # input validation + euro<->cents helpers
+    persistence/
+      file-backend.js      # JSON-file snapshot backend (default)
+      postgres-backend.js  # Postgres JSONB write-through backend (DATABASE_URL)
   services/
     accounts.js        # register / login / wallets / KYC
     payments.js        # the core ledger transfer + history
@@ -221,6 +249,10 @@ test/
   scheduled.test.js    # recurring-request scheduling, due-processing, catch-up
   contacts.test.js     # contact sync/matching, live membership, directory search
   business.test.js     # merchant/invoice payments + dashboard rollup
+  postgres.test.js     # Postgres backend round-trip (skipped unless DATABASE_URL)
+db/
+  migrations/
+    001_init.sql       # Postgres schema (euroflow.documents)
 ```
 
 ## Example: end-to-end P2P transfer
