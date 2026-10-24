@@ -348,8 +348,10 @@ $('#directory-form').addEventListener('submit', async (e) => {
     const el = $('#directory-results');
     el.innerHTML = results.length ? results.map((r) => `
       <div class="item">
-        <div class="grow"><div class="title">${esc(r.name)}</div><div class="sub">@${esc(r.username || '')}</div></div>
-        <button class="btn primary small" data-send-to="${esc(r.username || '')}">Send</button>
+        <div class="grow"><div class="title">${esc(r.name)}</div><div class="sub">${r.username ? `@${esc(r.username)}` : 'no username'}</div></div>
+        ${r.username
+    ? `<button class="btn primary small" data-send-to="${esc(r.username)}">Send</button>`
+    : '<span class="tag">no payment handle</span>'}
       </div>`).join('') : '<p class="muted">No matches.</p>';
   } catch (err) { toast(err.message, 'error'); }
 });
@@ -359,7 +361,7 @@ $('#contacts-sync-form').addEventListener('submit', async (e) => {
   const contacts = parseContactLines(fields(e.target).raw);
   if (!contacts.length) { toast('Add at least one contact', 'error'); return; }
   try {
-    const res = await api('POST', '/contacts/sync', { body: { contacts } });
+    const res = await api('POST', '/contacts/sync', { contacts });
     e.target.reset();
     toast(`Synced — ${res.on_platform.length} already on EuroFlow`, 'success');
     loadContacts();
@@ -430,7 +432,7 @@ $('#pay-merchant-form').addEventListener('submit', async (e) => {
   const f = fields(e.target);
   try {
     await api('POST', `/merchants/${encodeURIComponent(f.slug.trim())}/pay`, {
-      body: { amount: Number(f.amount), note: f.note },
+      amount: Number(f.amount), note: f.note,
     });
     e.target.reset();
     toast('Paid the business', 'success');
@@ -541,7 +543,7 @@ document.addEventListener('click', async (e) => {
   const invite = e.target.closest('[data-invite]');
   if (invite) {
     try {
-      const res = await api('POST', '/contacts/invite', { body: { name: invite.dataset.invite } });
+      const res = await api('POST', '/contacts/invite', { name: invite.dataset.invite });
       await navigator.clipboard?.writeText(`${res.message} ${res.link}`).catch(() => {});
       toast('Invite copied to clipboard', 'success');
     } catch (err) { toast(err.message, 'error'); }

@@ -126,6 +126,28 @@ test('a suspended merchant cannot accept payments', async () => {
   assert.equal(lookup.json.accepts_payments, false);
 });
 
+test('an open invoice cannot be paid after the merchant is suspended', async () => {
+  const { owner, merchant } = await newMerchant('suspinv');
+  const customer = await reg({ email: 'si@x.com', phone: phone(), username: 'si_cust' });
+  await api('POST', '/wallet/topup', { token: customer.token, body: { amount: 100 } });
+
+  const inv = await api('POST', '/invoice/create', {
+    token: owner.token, body: { customer_name: 'Jo', amount: 25 },
+  });
+
+  // Admin suspends the merchant after the invoice was issued.
+  const rec = store.find('merchants', (m) => m.slug === merchant.slug);
+  store.update('merchants', rec.id, { status: 'suspended' });
+
+  const pay = await api('POST', `/invoices/${inv.json.invoice_id}/pay`, { token: customer.token });
+  assert.equal(pay.status, 403);
+  // Invoice stays open; no money moved.
+  const list = await api('GET', '/invoices', { token: owner.token });
+  assert.equal(list.json.invoices.find((i) => i.invoice_id === inv.json.invoice_id).status, 'open');
+  const cust = await api('GET', '/wallet', { token: customer.token });
+  assert.equal(cust.json.balance, 100);
+});
+
 test('merchant dashboard aggregates revenue, customers, and invoices', async () => {
   const { owner, merchant } = await newMerchant('bistro');
 

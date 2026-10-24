@@ -143,6 +143,9 @@ export function payInvoice(store, payerUserId, invoiceId) {
   if (invoice.status === 'void') throw new HttpError(409, 'Invoice is void');
   const merchant = store.get('merchants', invoice.merchantId);
   if (!merchant) throw new HttpError(404, 'Merchant not found');
+  if (merchant.status === 'suspended' || merchant.status === 'rejected') {
+    throw new HttpError(403, 'This merchant is not currently accepting payments');
+  }
 
   const tx = transfer(store, {
     senderUserId: payerUserId,
