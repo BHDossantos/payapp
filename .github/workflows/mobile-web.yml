@@ -1,0 +1,38 @@
+name: Mobile web validation
+
+on:
+  pull_request:
+  push:
+    branches: [main, claude/upbeat-fermat-b4s6fj]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mobile-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --prefix tools/mobile-smoke
+      - run: npx --prefix tools/mobile-smoke playwright install --with-deps chromium webkit
+      - name: Test local demo on Android Chrome and iPhone Safari profiles
+        run: npm --prefix tools/mobile-smoke test
+      - name: Preserve browser failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-web-results
+          path: |
+            tools/mobile-smoke/playwright-report/
+            tools/mobile-smoke/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
