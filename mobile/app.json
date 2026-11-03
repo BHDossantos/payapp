@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "EuroFlow",
+    "slug": "euroflow",
+    "version": "0.1.0",
+    "scheme": "euroflow",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bnbglobal.euroflow"
+    },
+    "android": {
+      "package": "com.bnbglobal.euroflow"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
