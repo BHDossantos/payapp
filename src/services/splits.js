@@ -93,9 +93,11 @@ export function createSplit(store, creatorId, body) {
   return publicGroup(store, group);
 }
 
-export function getSplit(store, groupId) {
+export function getSplit(store, groupId, userId) {
   const group = store.get('splitGroups', groupId);
-  if (!group) throw new HttpError(404, 'Split group not found');
+  if (!group || (group.creatorId !== userId && !store.find('splitParticipants', p => p.groupId === groupId && p.userId === userId))) {
+    throw new HttpError(404, 'Split group not found');
+  }
   return publicGroup(store, group);
 }
 

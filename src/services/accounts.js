@@ -98,7 +98,8 @@ export function register(store, body) {
     username,
     country,
     kycStatus: 'unverified',
-    isAdmin: ADMIN_EMAILS.has(email),
+    // Registration email has not been verified: never bootstrap production admins from it.
+    isAdmin: process.env.NODE_ENV !== 'production' && ADMIN_EMAILS.has(email),
     passwordHash: hashPassword(password),
     createdAt: new Date().toISOString(),
   });
@@ -142,6 +143,7 @@ export function login(store, body) {
 
 // Demo/admin helper: credit a wallet (stands in for a top-up via Stripe/Adyen).
 export function topUp(store, userId, cents) {
+  if (process.env.NODE_ENV === 'production') throw new HttpError(503, 'Demo top-up is unavailable in production');
   const wallet = walletFor(store, userId);
   if (!wallet) throw new HttpError(404, 'Wallet not found');
   store.update('wallets', wallet.id, { balanceCents: wallet.balanceCents + cents });
@@ -149,6 +151,7 @@ export function topUp(store, userId, cents) {
 }
 
 export function verifyKyc(store, userId) {
+  if (process.env.NODE_ENV === 'production') throw new HttpError(503, 'Demo identity verification is unavailable in production');
   const user = store.get('users', userId);
   if (!user) throw new HttpError(404, 'User not found');
   store.update('users', userId, { kycStatus: 'verified' });

@@ -22,7 +22,7 @@ server.listen(PORT, () => {
 // the process alive on its own.
 const scheduleTimer = setInterval(() => {
   try {
-    const { ran } = runDue(store);
+    const { ran } = store.transaction(() => runDue(store));
     if (ran > 0) console.log(`Generated ${ran} scheduled request(s)`);
   } catch (err) {
     console.error('Schedule run failed:', err);
@@ -30,10 +30,10 @@ const scheduleTimer = setInterval(() => {
 }, SCHEDULE_TICK_MS);
 scheduleTimer.unref();
 
-// Flush state on shutdown so nothing in memory is lost.
+// Accepted writes are already durable. Drain requests before releasing the writer lock.
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => {
-    store.persist();
-    server.close(() => process.exit(0));
+    clearInterval(scheduleTimer);
+    server.close(() => { store.close(); process.exit(0); });
   });
 }

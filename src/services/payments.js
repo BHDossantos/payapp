@@ -27,7 +27,11 @@ export function publicTransaction(store, tx, viewerId = null) {
 
 // Moves money between two wallets atomically (single event-loop tick) and
 // records a transaction. Shared by P2P sends, request fulfilment, and splits.
-export function transfer(store, { senderUserId, receiverUserId, amountCents, currency, reference, type = 'p2p' }) {
+export function transfer(store, input) {
+  return store.transaction(() => transferWithinTransaction(store, input));
+}
+
+function transferWithinTransaction(store, { senderUserId, receiverUserId, amountCents, currency, reference, type = 'p2p' }) {
   if (senderUserId === receiverUserId) {
     throw new HttpError(400, 'Cannot send money to yourself');
   }
@@ -41,17 +45,9 @@ export function transfer(store, { senderUserId, receiverUserId, amountCents, cur
     throw new HttpError(400, 'Cross-currency transfers are not yet supported');
   }
   if (senderWallet.balanceCents < amountCents) {
-    const tx = store.insert('transactions', {
-      senderUserId,
-      receiverUserId,
-      amountCents,
-      currency,
-      status: 'failed',
-      type,
-      reference: reference || null,
-      createdAt: new Date().toISOString(),
-    });
-    throw new HttpError(402, 'Insufficient balance', { transaction_id: tx.id });
+    // Rejected requests roll back their entire transaction; do not expose a
+    // transaction_id for a record that will not exist.
+    throw new HttpError(402, 'Insufficient balance');
   }
 
   store.update('wallets', senderWallet.id, { balanceCents: senderWallet.balanceCents - amountCents });
