@@ -1,6 +1,7 @@
 import { URL } from 'node:url';
 import { Router, HttpError, sendJson, readJsonBody } from './lib/http.js';
 import { verifyToken } from './lib/crypto.js';
+import { requireAmountCents } from './lib/validate.js';
 import { serveStatic } from './lib/static.js';
 import * as accounts from './services/accounts.js';
 import * as payments from './services/payments.js';
@@ -37,8 +38,7 @@ function buildRouter() {
     body: accounts.publicWallet(accounts.walletFor(store, userId)),
   }));
   r.post('/wallet/topup', { auth: true }, ({ store, userId, body }) => {
-    const cents = Math.round((body.amount || 0) * 100);
-    if (cents <= 0) throw new HttpError(400, 'amount must be a positive number of euros');
+    const cents = requireAmountCents(body);
     return { status: 200, body: accounts.topUp(store, userId, cents) };
   });
 
@@ -74,8 +74,8 @@ function buildRouter() {
   r.get('/splits', { auth: true }, ({ store, userId }) => ({
     status: 200, body: { splits: splits.listSplits(store, userId) },
   }));
-  r.get('/splits/:id', { auth: true }, ({ store, params }) => ({
-    status: 200, body: splits.getSplit(store, params.id),
+  r.get('/splits/:id', { auth: true }, ({ store, userId, params }) => ({
+    status: 200, body: splits.getSplit(store, params.id, userId),
   }));
   r.post('/splits/:id/pay', { auth: true }, ({ store, userId, params }) => ({
     status: 200, body: splits.paySplitShare(store, userId, params.id),
@@ -203,6 +203,7 @@ export function createApp({ store, staticDir = null }) {
     const matched = router.match(req.method, parsed.pathname);
 
     try {
+      store.assertUsable();
       if (!matched) {
         // No API route: try to serve the web client, otherwise 404 (JSON).
         if (staticDir && await serveStatic(req, res, parsed.pathname, staticDir)) return;
@@ -226,7 +227,8 @@ export function createApp({ store, staticDir = null }) {
         : {};
       const query = Object.fromEntries(parsed.searchParams.entries());
 
-      const result = await matched.handler({ store, userId, body, params: matched.params, query });
+      const invoke = () => matched.handler({ store, userId, body, params: matched.params, query });
+      const result = ['GET', 'HEAD'].includes(req.method) ? invoke() : store.transaction(invoke);
       sendJson(res, result.status || 200, result.body);
     } catch (err) {
       if (err instanceof HttpError) {

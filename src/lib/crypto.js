@@ -2,7 +2,12 @@ import { scryptSync, randomBytes, timingSafeEqual, createHmac } from 'node:crypt
 
 // Secret used to sign session tokens. In production this MUST come from the
 // environment; the fallback only exists so the dev server boots out of the box.
-const TOKEN_SECRET = process.env.EUROFLOW_TOKEN_SECRET || 'dev-insecure-secret-change-me';
+const configuredSecret = process.env.EUROFLOW_TOKEN_SECRET;
+if (process.env.NODE_ENV === 'production' &&
+    (!configuredSecret || configuredSecret.trim().length < 32 || configuredSecret === 'dev-insecure-secret-change-me')) {
+  throw new Error('Production requires EUROFLOW_TOKEN_SECRET with at least 32 characters; development keys are forbidden');
+}
+const TOKEN_SECRET = configuredSecret || 'dev-insecure-secret-change-me';
 const TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 
 export function hashPassword(plain) {
