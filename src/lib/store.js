@@ -2,28 +2,13 @@ import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import { dirname } from 'node:path';
 
-// A tiny document store. Everything lives in memory for fast, synchronous reads
-// and predicate scans. Durability is delegated to an optional pluggable backend
-// (file snapshot or Postgres write-through); with no backend the store is purely
-// in-memory, which is what the test suite uses. Monetary values are stored as
-// integer minor units (cents) everywhere.
-const EMPTY = () => ({
-  users: {},
-  wallets: {},
-  transactions: {},
-  paymentRequests: {},
-  splitGroups: {},
-  splitParticipants: {},
-  merchants: {},
-  invoices: {},
-  qrCodes: {},
-  notifications: {},
-  scheduledRequests: {},
-  contacts: {},
-});
-
+// Guarded synchronous demo ledger: each transaction atomically replaces a file
+// snapshot under an exclusive writer lock. No asynchronous backend is accepted
+// until durable commit and rollback semantics can preserve the same guarantees.
+// Monetary values are integer minor units (cents).
 export class Store {
-  constructor({ filePath = null, filesystem = fs } = {}) {
+  constructor({ filePath = null, filesystem = fs, backend = null } = {}) {
+    if (backend) throw new Error("Pluggable persistence is unavailable until atomic commit and failure handling are verified; use the guarded file store for demos");
     this.fs = filesystem;
     this.inTransaction = false;
     this.closed = false;
@@ -143,7 +128,6 @@ export class Store {
     const id = doc.id || randomUUID();
     const record = { id, ...doc };
     this.data[collection][id] = record;
-    this._emit('upsert', collection, id, record);
     return record;
   }
 
@@ -158,15 +142,14 @@ export class Store {
     if (!existing) return null;
     const updated = { ...existing, ...patch };
     this.data[collection][id] = updated;
-    this._emit('upsert', collection, id, updated);
     return updated;
   }
 
   remove(collection, id) {
+    if (!this.inTransaction) return this.transaction(() => this.remove(collection, id));
     const existing = this.data[collection][id];
     if (!existing) return null;
     delete this.data[collection][id];
-    this._emit('remove', collection, id, existing);
     return existing;
   }
 
@@ -183,12 +166,4 @@ export class Store {
     return this.all(collection).filter(predicate);
   }
 
-  // Awaits any pending durable writes (meaningful for async backends).
-  async flush() {
-    await this.backend?.flush?.();
-  }
-
-  async close() {
-    await this.backend?.close?.();
-  }
 }
