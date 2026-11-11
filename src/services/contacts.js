@@ -90,8 +90,7 @@ export function listContacts(store, ownerId, { onPlatform = false } = {}) {
 export function deleteContact(store, ownerId, id) {
   const c = store.get('contacts', id);
   if (!c || c.ownerId !== ownerId) throw new HttpError(404, 'Contact not found');
-  delete store.data.contacts[id];
-  store.persist();
+  store.remove('contacts', id);
   return { deleted: true };
 }
 

@@ -2,9 +2,26 @@ import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import { dirname } from 'node:path';
 
-// A tiny document store. Everything lives in memory for speed; when a file path
-// is provided it is also persisted to disk as JSON so data survives restarts.
-// Monetary values are stored as integer minor units (cents) everywhere.
+// A tiny document store. Everything lives in memory for fast, synchronous reads
+// and predicate scans. Durability is delegated to an optional pluggable backend
+// (file snapshot or Postgres write-through); with no backend the store is purely
+// in-memory, which is what the test suite uses. Monetary values are stored as
+// integer minor units (cents) everywhere.
+const EMPTY = () => ({
+  users: {},
+  wallets: {},
+  transactions: {},
+  paymentRequests: {},
+  splitGroups: {},
+  splitParticipants: {},
+  merchants: {},
+  invoices: {},
+  qrCodes: {},
+  notifications: {},
+  scheduledRequests: {},
+  contacts: {},
+});
+
 export class Store {
   constructor({ filePath = null, filesystem = fs } = {}) {
     this.fs = filesystem;
@@ -54,6 +71,7 @@ export class Store {
         throw error; // Preserve the file; never silently replace it with empty balances.
       }
     }
+    return this;
   }
 
   assertUsable() {
@@ -125,7 +143,7 @@ export class Store {
     const id = doc.id || randomUUID();
     const record = { id, ...doc };
     this.data[collection][id] = record;
-    this.persist();
+    this._emit('upsert', collection, id, record);
     return record;
   }
 
@@ -140,8 +158,16 @@ export class Store {
     if (!existing) return null;
     const updated = { ...existing, ...patch };
     this.data[collection][id] = updated;
-    this.persist();
+    this._emit('upsert', collection, id, updated);
     return updated;
+  }
+
+  remove(collection, id) {
+    const existing = this.data[collection][id];
+    if (!existing) return null;
+    delete this.data[collection][id];
+    this._emit('remove', collection, id, existing);
+    return existing;
   }
 
   all(collection) {
@@ -155,5 +181,14 @@ export class Store {
 
   filter(collection, predicate) {
     return this.all(collection).filter(predicate);
+  }
+
+  // Awaits any pending durable writes (meaningful for async backends).
+  async flush() {
+    await this.backend?.flush?.();
+  }
+
+  async close() {
+    await this.backend?.close?.();
   }
 }
