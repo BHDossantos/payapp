@@ -212,3 +212,27 @@ test('direct ledger transfer rolls back an error between debit and credit', t =>
   assert.equal(store.get('wallets', 'b').balanceCents, 0);
   assert.equal(fs.readFileSync(filePath, 'utf8'), before);
 });
+
+test('unsupported asynchronous backends fail closed instead of losing writes', () => {
+  assert.throws(() => new Store({ backend: { onMutation() {} } }), /Pluggable persistence is unavailable/);
+});
+
+test('standalone removal is durable and releases the writer lock on close', t => {
+  const {store, filePath} = fixture(t);
+  store.remove('users', 'a');
+  assert.equal(JSON.parse(fs.readFileSync(filePath)).users.a, undefined);
+  store.close();
+  assert.equal(fs.existsSync(`${filePath}.lock`), false);
+  const reopened = new Store({filePath});
+  assert.equal(reopened.get('users', 'a'), null);
+  reopened.close();
+});
+
+test('database-configured startup refuses to silently use a demo file', () => {
+  const result = spawnSync(process.execPath, ['src/server.js'], {
+    encoding: 'utf8', timeout: 5000,
+    env: {...process.env, DATABASE_URL: 'postgres://not-used.invalid/demo'},
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Postgres persistence is not release-ready/);
+});
