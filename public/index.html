@@ -194,6 +194,10 @@
     <section class="panel" data-panel="activity" hidden>
       <div class="card">
         <h3>Transaction history</h3>
+        <label>Search transactions <input id="history-search" type="search" placeholder="Name, note, amount or status"></label>
+        <label>Direction <select id="history-direction"><option value="">All transactions</option><option value="sent">Sent</option><option value="received">Received</option></select></label>
+        <button type="button" id="history-clear">Clear filters</button>
+        <p id="history-count" class="muted" role="status"></p>
         <div id="history-list" class="list"><p class="muted">Loading…</p></div>
       </div>
     </section>

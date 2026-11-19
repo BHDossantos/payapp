@@ -1,3 +1,4 @@
+import { filterTransactions } from './history.js';
 // EuroFlow web client — vanilla ES modules, no build step. Talks to the same
 // origin's JSON API and keeps the session token in localStorage.
 
@@ -152,26 +153,34 @@ async function loadRequests(box) {
   } catch (err) { toast(err.message, 'error'); }
 }
 
+let historyTransactions = [];
+function renderHistory() {
+  const transactions = filterTransactions(historyTransactions, $('#history-search').value, $('#history-direction').value);
+  $('#history-count').textContent = `${transactions.length} of ${historyTransactions.length} transactions`;
+  const el = $('#history-list');
+  if (!transactions.length) {
+    el.innerHTML = historyTransactions.length ? '<p class="muted">No matching transactions. Try another search or clear the filters.</p>' : '<p class="muted">No transactions yet.</p>';
+    return;
+  }
+  el.innerHTML = transactions.map(renderTransaction).join('');
+}
+function renderTransaction(t) {
+  const sent = t.direction === 'sent';
+  const other = sent ? t.receiver_name : t.sender_name;
+  const cls = t.status !== 'completed' ? '' : (sent ? 'amount-neg' : 'amount-pos');
+  return `<div class="item"><div class="grow"><div class="title">${sent ? 'To' : 'From'} ${esc(other)}</div>
+    <div class="sub">${esc(t.reference || t.type)} · ${new Date(t.created_at).toLocaleString()}</div></div>
+    <div style="text-align:right"><div class="${cls}">${sent ? '−' : '+'}${euro(t.amount)}</div>
+    ${t.status !== 'completed' ? `<span class="tag">${esc(t.status)}</span>` : ''}</div></div>`;
+}
+$('#history-search').addEventListener('input', renderHistory);
+$('#history-direction').addEventListener('change', renderHistory);
+$('#history-clear').addEventListener('click', () => { $('#history-search').value = ''; $('#history-direction').value = ''; renderHistory(); $('#history-search').focus(); });
 async function loadHistory() {
   try {
     const { transactions } = await api('GET', '/wallet/history');
-    const el = $('#history-list');
-    if (!transactions.length) { el.innerHTML = '<p class="muted">No transactions yet.</p>'; return; }
-    el.innerHTML = transactions.map((t) => {
-      const sent = t.direction === 'sent';
-      const other = sent ? t.receiver_name : t.sender_name;
-      const sign = sent ? '−' : '+';
-      const cls = t.status !== 'completed' ? '' : (sent ? 'amount-neg' : 'amount-pos');
-      return `<div class="item">
-        <div class="grow">
-          <div class="title">${sent ? 'To' : 'From'} ${esc(other)}</div>
-          <div class="sub">${esc(t.reference || t.type)} · ${new Date(t.created_at).toLocaleString()}</div>
-        </div>
-        <div style="text-align:right">
-          <div class="${cls}">${sign}${euro(t.amount)}</div>
-          ${t.status !== 'completed' ? `<span class="tag ${t.status}">${t.status}</span>` : ''}
-        </div></div>`;
-    }).join('');
+    historyTransactions = transactions;
+    renderHistory();
   } catch (err) { toast(err.message, 'error'); }
 }
 
