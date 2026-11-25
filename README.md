@@ -48,7 +48,7 @@ npm test                    # node --test
 | `PORT`                   | `3000`                      | HTTP port                            |
 | `EUROFLOW_DATA_FILE`     | `./data/euroflow.json`      | JSON persistence path                |
 | `EUROFLOW_TOKEN_SECRET`  | `dev-insecure-secret...`    | HMAC secret for session tokens       |
-| `EUROFLOW_PAY_URL`       | `https://euroflow.app/pay`  | Base URL for payment links / QR      |
+| `EUROFLOW_PAY_URL`       | `http://localhost:3000/pay` | Base URL for payment links, QR and invites. **Set this in every deployment**; euroflow.app is not our domain |
 | `EUROFLOW_ADMIN_EMAILS`  | _(none)_                    | Comma-separated emails granted admin at registration |
 | `EUROFLOW_AML_LARGE_EUR` | `1000`                      | Single-transfer amount that raises an AML alert |
 | `EUROFLOW_SCHEDULE_TICK_MS` | `60000`                  | How often the server fires due recurring requests |

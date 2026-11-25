@@ -5,8 +5,8 @@ import {
 import { walletFor } from './accounts.js';
 import { transfer, publicTransaction } from './payments.js';
 import { notify } from './notifications.js';
+import { payBaseUrl } from '../lib/links.js';
 
-const PAY_BASE_URL = process.env.EUROFLOW_PAY_URL || 'https://euroflow.app/pay';
 
 function slugify(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
@@ -21,7 +21,7 @@ export function publicMerchant(merchant) {
     country: merchant.country,
     status: merchant.status,
     slug: merchant.slug,
-    payment_link: `${PAY_BASE_URL}/${merchant.slug}`,
+    payment_link: `${payBaseUrl()}/${merchant.slug}`,
   };
 }
 
@@ -71,7 +71,7 @@ export function publicInvoice(invoice) {
     status: invoice.status,
     due_date: invoice.dueDate,
     paid_at: invoice.paidAt || null,
-    pay_link: `${PAY_BASE_URL}/invoice/${invoice.id}`,
+    pay_link: `${payBaseUrl()}/invoice/${invoice.id}`,
     created_at: invoice.createdAt,
   };
 }
@@ -267,7 +267,7 @@ export function generateQr(store, userId, body) {
   if (reference) params.set('ref', reference);
 
   const deepLink = `euroflow://pay?${params.toString()}`;
-  const webLink = `${PAY_BASE_URL}?${params.toString()}`;
+  const webLink = `${payBaseUrl()}?${params.toString()}`;
 
   const qr = store.insert('qrCodes', {
     userId,
