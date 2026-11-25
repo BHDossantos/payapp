@@ -1,6 +1,7 @@
 import { HttpError } from '../lib/http.js';
 import { requireString, optionalString } from '../lib/validate.js';
 import { publicUser } from './accounts.js';
+import { joinUrl } from '../lib/links.js';
 
 const normalizePhone = (p) => (p || '').replace(/[\s-]/g, '');
 const normalizeEmail = (e) => (e || '').trim().toLowerCase();
@@ -126,7 +127,7 @@ export function searchDirectory(store, rawQuery, callerId) {
 export function inviteText(store, ownerId, body) {
   const name = optionalString(body, 'name', { max: 120 });
   const owner = store.get('users', ownerId);
-  const link = `${process.env.EUROFLOW_PAY_URL || 'https://euroflow.app/pay'}/../join?ref=${owner.username || owner.id}`;
+  const link = joinUrl(owner.username || owner.id);
   return {
     message: `${owner.firstName} invited you to EuroFlow — send and receive money instantly across Europe.${name ? ` Hi ${name}!` : ''}`,
     link,
